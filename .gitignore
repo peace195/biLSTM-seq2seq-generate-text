@@ -1,0 +1,13 @@
+*.pyc
+show.py
+save/
+model/
+log/
+.backup/
+.idea/
+.ipynb_checkpoints/
+.DS_Store
+model*/
+__pycache__/
+.idea/
+data/
