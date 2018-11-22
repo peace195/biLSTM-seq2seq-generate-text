@@ -3,8 +3,6 @@
 
 import json
 import math
-import os
-import time
 from collections import OrderedDict
 
 import tensorflow as tf
@@ -61,11 +59,15 @@ for line in fout:
         trainX_len.append(2)
     except KeyError:
         continue
-    trainY.append(Y)
     trainY_len.append(len(Y))
+    trainY.append(pad_to(Y, SEQ_MAX_LEN, unk_id))
 
 fout.close()
 src_len = len(trainX)
+trainX = np.array(trainX)
+trainX_len = np.array(trainX_len)
+trainY = np.array(trainY)
+trainY_len = np.array(trainY_len)
 
 # Network parameters
 tf.app.flags.DEFINE_string('cell_type', 'lstm', 'RNN cell for encoder and decoder, default: lstm')
@@ -223,7 +225,6 @@ def train(embedding):
 
 def main(_):
     train(embedding)
-
 
 if __name__ == '__main__':
     tf.app.run()

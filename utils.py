@@ -21,15 +21,11 @@ def pad_to(lst, length, value):
 
 
 def uprint(x):
-    print (repr(x).decode('unicode-escape'))
+    print(repr(x).decode('unicode-escape'))
 
 
 def uprintln(x):
-    print (repr(x).decode('unicode-escape'))
-
-
-def is_CN_char(ch):
-    return ch >= u'\u4e00' and ch <= u'\u9fa5'
+    print(repr(x).decode('unicode-escape'))
 
 
 def split_sentences(line):
