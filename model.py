@@ -313,7 +313,6 @@ class Seq2SeqModel:
             impute_finished=True,
             maximum_iterations=max_decoder_length
         )
-
         # NOTE(sdsuo): Not sure why this is necessary
         self.decoder_logits_train = tf.identity(self.decoder_outputs_train.rnn_output)
 
@@ -334,6 +333,8 @@ class Seq2SeqModel:
 
         # Computes per word average cross-entropy over a batch
         # Internally calls 'nn_ops.sparse_softmax_cross_entropy_with_logits' by default
+        print(self.decoder_logits_train.get_shape())
+        print(self.decoder_targets_train.get_shape())
         self.loss = seq2seq.sequence_loss(
             logits=self.decoder_logits_train,
             targets=self.decoder_targets_train,

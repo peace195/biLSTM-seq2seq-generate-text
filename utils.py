@@ -27,15 +27,3 @@ def uprint(x):
 def uprintln(x):
     print(repr(x).decode('unicode-escape'))
 
-
-def split_sentences(line):
-    sentences = []
-    i = 0
-    for j in range(len(line)+1):
-        if j == len(line) or line[j] in [u'，', u'。', u'！', u'？', u'、']:
-            if i < j:
-                sentence = u''.join(filter(is_CN_char, line[i:j]))
-                sentences.append(sentence)
-            i = j+1
-    return sentences
-

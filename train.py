@@ -18,7 +18,7 @@ trainX_len = []
 trainY_len = []
 word_dict = {}
 embedding = []
-SEQ_MAX_LEN = 100
+SEQ_MAX_LEN = 50
 f_vec = codecs.open('./data/glove.6B.50d.txt', 'r', 'utf-8')
 idx = 0
 for line in f_vec:
@@ -42,7 +42,6 @@ embedding.append([0.] * len(embedding[0]))
 word_dict['end_id'] = end_id
 embedding.append([0.] * len(embedding[0]))
 word_dict_rev = {v: k for k, v in word_dict.items()}
-emb_dim = 50
 src_vocab_size = src_vocab_size + 2
 fout = open("./data/lp_train.txt", "r")
 
@@ -59,15 +58,20 @@ for line in fout:
         trainX_len.append(2)
     except KeyError:
         continue
-    trainY_len.append(len(Y))
-    trainY.append(pad_to(Y, SEQ_MAX_LEN, unk_id))
+
+    if len(Y) < SEQ_MAX_LEN:
+        trainY_len.append(len(Y))
+        trainY.append(pad_to(Y, SEQ_MAX_LEN, unk_id))
+    else:
+        trainY_len.append(SEQ_MAX_LEN)
+        trainY.append(Y[0:SEQ_MAX_LEN])
 
 fout.close()
 src_len = len(trainX)
-trainX = np.array(trainX)
-trainX_len = np.array(trainX_len)
-trainY = np.array(trainY)
-trainY_len = np.array(trainY_len)
+# trainX = np.array(trainX)
+# trainX_len = np.array(trainX_len)
+# trainY = np.array(trainY)
+# trainY_len = np.array(trainY_len)
 
 # Network parameters
 tf.app.flags.DEFINE_string('cell_type', 'lstm', 'RNN cell for encoder and decoder, default: lstm')
@@ -88,7 +92,7 @@ tf.app.flags.DEFINE_float('dropout_rate', 0.3, 'Dropout probability for input/ou
 # Training parameters
 tf.app.flags.DEFINE_float('learning_rate', 0.0002, 'Learning rate')
 tf.app.flags.DEFINE_float('max_gradient_norm', 1.0, 'Clip gradients to this norm')
-tf.app.flags.DEFINE_integer('batch_size', 64, 'Batch size')
+tf.app.flags.DEFINE_integer('batch_size', 8, 'Batch size')
 tf.app.flags.DEFINE_integer('max_epochs', 10000, 'Maximum # of training epochs')
 tf.app.flags.DEFINE_integer('max_load_batches', 20, 'Maximum # of batches to load at one time')
 tf.app.flags.DEFINE_integer('max_seq_length', 100, 'Maximum sequence length')
@@ -156,7 +160,6 @@ def train(embedding):
         model.init_vars(sess, embedding=embedding)
 
         step_time, loss = 0.0, 0.0
-
         print('Training...')
         for epoch_idx in range(FLAGS.max_epochs):
             if model.global_epoch_step.eval() >= FLAGS.max_epochs:
@@ -177,10 +180,10 @@ def train(embedding):
                     start = i * FLAGS.batch_size
                 step_loss, summary = model.train(
                     sess,
-                    encoder_inputs=trainX[start : start + FLAGS.batch_size],
-                    encoder_inputs_length=trainX_len[start : start + FLAGS.batch_size],
-                    decoder_inputs=trainY[start : start + FLAGS.batch_size],
-                    decoder_inputs_length=trainY_len[start : start + FLAGS.batch_size]
+                    encoder_inputs=np.array(trainX[start : start + FLAGS.batch_size]),
+                    encoder_inputs_length=np.array(trainX_len[start : start + FLAGS.batch_size]),
+                    decoder_inputs=np.array(trainY[start : start + FLAGS.batch_size]),
+                    decoder_inputs_length=np.array(trainY_len[start : start + FLAGS.batch_size])
                 )
 
                 loss += float(step_loss) / FLAGS.display_freq
