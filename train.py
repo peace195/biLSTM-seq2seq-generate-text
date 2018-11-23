@@ -18,7 +18,7 @@ trainX_len = []
 trainY_len = []
 word_dict = {}
 embedding = []
-SEQ_MAX_LEN = 50
+SEQ_MAX_LEN = 60
 f_vec = codecs.open('./data/glove.6B.50d.txt', 'r', 'utf-8')
 idx = 0
 for line in f_vec:
@@ -44,7 +44,6 @@ embedding.append([0.] * len(embedding[0]))
 word_dict_rev = {v: k for k, v in word_dict.items()}
 src_vocab_size = src_vocab_size + 2
 fout = open("./data/lp_train.txt", "r")
-
 for line in fout:
     Y = []
     words = line.strip().replace("\t", " ").split()
@@ -60,8 +59,8 @@ for line in fout:
         continue
 
     if len(Y) < SEQ_MAX_LEN:
-        trainY_len.append(len(Y))
         trainY.append(pad_to(Y, SEQ_MAX_LEN, unk_id))
+        trainY_len.append(SEQ_MAX_LEN)
     else:
         trainY_len.append(SEQ_MAX_LEN)
         trainY.append(Y[0:SEQ_MAX_LEN])
@@ -92,11 +91,11 @@ tf.app.flags.DEFINE_float('dropout_rate', 0.3, 'Dropout probability for input/ou
 # Training parameters
 tf.app.flags.DEFINE_float('learning_rate', 0.0002, 'Learning rate')
 tf.app.flags.DEFINE_float('max_gradient_norm', 1.0, 'Clip gradients to this norm')
-tf.app.flags.DEFINE_integer('batch_size', 8, 'Batch size')
-tf.app.flags.DEFINE_integer('max_epochs', 10000, 'Maximum # of training epochs')
-tf.app.flags.DEFINE_integer('max_load_batches', 20, 'Maximum # of batches to load at one time')
+tf.app.flags.DEFINE_integer('batch_size', 32, 'Batch size')
+tf.app.flags.DEFINE_integer('max_epochs', 100, 'Maximum # of training epochs')
+tf.app.flags.DEFINE_integer('max_load_batches', 60, 'Maximum # of batches to load at one time')
 tf.app.flags.DEFINE_integer('max_seq_length', 100, 'Maximum sequence length')
-tf.app.flags.DEFINE_integer('display_freq', 100, 'Display training status every this iteration')
+tf.app.flags.DEFINE_integer('display_freq', 1, 'Display training status every this iteration')
 tf.app.flags.DEFINE_integer('save_freq', 100, 'Save model checkpoint every this iteration')
 tf.app.flags.DEFINE_integer('valid_freq', 1150000, 'Evaluate model every this iteration: valid_data needed')
 tf.app.flags.DEFINE_string('optimizer', 'adam', 'Optimizer for training: (adadelta, adam, rmsprop)')
@@ -108,6 +107,7 @@ tf.app.flags.DEFINE_boolean('sort_by_length', True, 'Sort pre-fetched minibatche
 tf.app.flags.DEFINE_boolean('use_fp16', False, 'Use half precision float16 instead of float32 as dtype')
 tf.app.flags.DEFINE_boolean('bidirectional', True, 'Use bidirectional encoder')
 tf.app.flags.DEFINE_string('train_mode', 'ground_truth', 'Decode helper to use for training')
+tf.app.flags.DEFINE_integer('max_decode_step', 500, 'Maximum time step limit to decode')
 tf.app.flags.DEFINE_float('sampling_probability', 0.1, 'Probability of sampling from decoder output instead of using ground truth')
 
 # TODO(sdsuo): Make start token and end token more robust
@@ -159,7 +159,7 @@ def train(embedding):
         embedding = np.array(embedding)
         model.init_vars(sess, embedding=embedding)
 
-        step_time, loss = 0.0, 0.0
+        loss = 0.0
         print('Training...')
         for epoch_idx in range(FLAGS.max_epochs):
             if model.global_epoch_step.eval() >= FLAGS.max_epochs:
@@ -178,6 +178,7 @@ def train(embedding):
                     start = src_len - FLAGS.batch_size
                 else:
                     start = i * FLAGS.batch_size
+
                 step_loss, summary = model.train(
                     sess,
                     encoder_inputs=np.array(trainX[start : start + FLAGS.batch_size]),
@@ -190,12 +191,8 @@ def train(embedding):
 
                 # Display information
                 if model.global_step.eval() % FLAGS.display_freq == 0:
-
-                    avg_perplexity = math.exp(float(loss)) if loss < 300 else float("inf")
-
-
                     print('Epoch ', model.global_epoch_step.eval(), 'Step ', model.global_step.eval(),
-                          'Perplexity {0:.2f}'.format(avg_perplexity), 'Step-time ', step_time)
+                          'Loss {0:.2f}'.format(loss))
 
                     loss = 0
 
@@ -207,9 +204,9 @@ def train(embedding):
                     print('Saving the model..')
                     checkpoint_path = os.path.join(FLAGS.model_dir, FLAGS.model_name)
                     model.save(sess, saver, checkpoint_path, global_step=model.global_step)
-                    json.dump(model.config,
-                              open('%s-%d.json' % (checkpoint_path, model.global_step.eval()), 'wb'),
-                              indent=2)
+                    # json.dump(model.config,
+                    #           open('%s-%d.json' % (checkpoint_path, model.global_step.eval()), 'wb'),
+                    #           indent=2)
 
             # Increase the epoch index of the model
             model.increment_global_epoch_step_op.eval()
@@ -219,9 +216,9 @@ def train(embedding):
         print('Saving the last model')
         checkpoint_path = os.path.join(FLAGS.model_dir, FLAGS.model_name)
         model.save(sess, saver, checkpoint_path, global_step=model.global_step)
-        json.dump(model.config,
-                  open('%s-%d.json' % (checkpoint_path, model.global_step.eval()), 'wb'),
-                  indent=2)
+        # json.dump(model.config,
+        #           open('%s-%d.json' % (checkpoint_path, model.global_step.eval()), 'wb'),
+        #           indent=2)
 
     print('Training terminated')
 

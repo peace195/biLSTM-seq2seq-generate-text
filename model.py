@@ -57,7 +57,7 @@ class Seq2SeqModel:
         if self.mode == 'predict':
             self.beam_width = config['beam_width'].value
             self.use_beamsearch_decode = True if self.beam_width > 1 else False
-            self.max_decode_step = config['max_decode_step']
+            self.max_decode_step = config['max_decode_step'].value
 
             self.predict_mode = config['predict_mode'].value
         elif self.mode == 'train':
