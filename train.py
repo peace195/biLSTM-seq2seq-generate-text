@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import json
-import math
 from collections import OrderedDict
 
 import tensorflow as tf
@@ -11,6 +9,7 @@ from utils import *
 from model import Seq2SeqModel
 import codecs
 import numpy as np
+import random
 
 trainX = []
 trainY = []
@@ -67,10 +66,9 @@ for line in fout:
 
 fout.close()
 src_len = len(trainX)
-# trainX = np.array(trainX)
-# trainX_len = np.array(trainX_len)
-# trainY = np.array(trainY)
-# trainY_len = np.array(trainY_len)
+permutation = list(range(src_len))
+trainX = np.array(trainX)[permutation]
+trainY = np.array(trainY)[permutation]
 
 # Network parameters
 tf.app.flags.DEFINE_string(
