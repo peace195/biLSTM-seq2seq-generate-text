@@ -1,21 +1,10 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-import json
-import math
-from collections import OrderedDict
-
 import tensorflow as tf
-
-from utils import *
-from model import Seq2SeqModel
 import codecs
+from model import Seq2SeqModel
+from collections import OrderedDict
+from utils import *
 import numpy as np
 
-trainX = []
-trainY = []
-trainX_len = []
-trainY_len = []
 word_dict = {}
 embedding = []
 SEQ_MAX_LEN = 60
@@ -43,34 +32,30 @@ word_dict['end_id'] = end_id
 embedding.append([0.] * len(embedding[0]))
 word_dict_rev = {v: k for k, v in word_dict.items()}
 src_vocab_size = src_vocab_size + 2
-fout = open("./data/lp_train.txt", "r")
-for line in fout:
-    Y = []
-    words = line.strip().replace("\t", " ").split()
-    for word in words[:-2]:
-        try:
-            Y.append(word_dict[word])
-        except KeyError:
-            continue
-    try:
-        trainX.append([word_dict[words[-2]], word_dict[words[-1]]])
-        trainX_len.append(2)
-    except KeyError:
-        continue
 
-    if len(Y) < SEQ_MAX_LEN:
-        trainY.append(pad_to(Y, SEQ_MAX_LEN, unk_id))
-        trainY_len.append(SEQ_MAX_LEN)
-    else:
-        trainY_len.append(SEQ_MAX_LEN)
-        trainY.append(Y[0:SEQ_MAX_LEN])
+# Decoding parameters
+tf.app.flags.DEFINE_integer('beam_width', 1, 'Beam width used in beamsearch')
+tf.app.flags.DEFINE_integer(
+    'decode_batch_size',
+    60,
+    'Batch size used for decoding')
+tf.app.flags.DEFINE_integer(
+    'max_decode_step',
+    60,
+    'Maximum time step limit to decode')
+tf.app.flags.DEFINE_boolean(
+    'write_n_best',
+    False,
+    'Write n-best list (n=beam_width)')
+tf.app.flags.DEFINE_string(
+    'model_path',
+    'model_dir',
+    'Path to a specific model checkpoint.')
+tf.app.flags.DEFINE_string(
+    'predict_mode',
+    'greedy',
+    'Decode helper to use for predicting')
 
-fout.close()
-src_len = len(trainX)
-# trainX = np.array(trainX)
-# trainX_len = np.array(trainX_len)
-# trainY = np.array(trainY)
-# trainY_len = np.array(trainY_len)
 
 # Network parameters
 tf.app.flags.DEFINE_string(
@@ -128,8 +113,6 @@ tf.app.flags.DEFINE_float(
     'max_gradient_norm',
     1.0,
     'Clip gradients to this norm')
-tf.app.flags.DEFINE_integer('batch_size', 32, 'Batch size')
-tf.app.flags.DEFINE_integer('max_epochs', 100, 'Maximum # of training epochs')
 tf.app.flags.DEFINE_integer(
     'max_load_batches',
     60,
@@ -137,11 +120,11 @@ tf.app.flags.DEFINE_integer(
 tf.app.flags.DEFINE_integer('max_seq_length', 100, 'Maximum sequence length')
 tf.app.flags.DEFINE_integer(
     'display_freq',
-    10,
+    100,
     'Display training status every this iteration')
 tf.app.flags.DEFINE_integer(
     'save_freq',
-    1000,
+    100,
     'Save model checkpoint every this iteration')
 tf.app.flags.DEFINE_integer(
     'valid_freq',
@@ -214,7 +197,7 @@ def load_or_create_model(sess, model, saver, FLAGS):
         sess.run(tf.global_variables_initializer())
 
 
-def train(embedding):
+def main(_):
     config_proto = tf.ConfigProto(
         allow_soft_placement=FLAGS.allow_soft_placement,
         log_device_placement=FLAGS.log_device_placement,
@@ -224,10 +207,7 @@ def train(embedding):
     with tf.Session(config=config_proto) as sess:
         # Build the model
         config = OrderedDict(sorted(FLAGS.__flags.items()))
-        model = Seq2SeqModel(config, 'train')
-
-        # Create a log writer object
-        log_writer = tf.summary.FileWriter(FLAGS.model_dir, graph=sess.graph)
+        model = Seq2SeqModel(config, 'predict')
 
         # Create a saver
         # Using var_list = None returns the list of all saveable variables
@@ -236,89 +216,24 @@ def train(embedding):
         # Initiaize global variables or reload existing checkpoint
         load_or_create_model(sess, model, saver, FLAGS)
 
-        # Load word2vec embedding
-        embedding = np.array(embedding)
-        model.init_vars(sess, embedding=embedding)
+        while True:
+            input_seq = input('Enter Query: ')
+            source = [word_dict.get(w, unk_id) for w in input_seq.split(" ")]
+            source_len = [2]
+            predicted_batch = model.predict(
+                sess,
+                encoder_inputs=np.array([source]),
+                encoder_inputs_length=np.array(source_len)
+            )
 
-        loss = 0.0
-        print('Training...')
-        for epoch_idx in range(FLAGS.max_epochs):
-            if model.global_epoch_step.eval() >= FLAGS.max_epochs:
-                print(
-                    'Training is already complete.',
-                    'Current epoch: {}, Max epoch: {}'.format(
-                        model.global_epoch_step.eval(),
-                        FLAGS.max_epochs))
-                break
-
-            # Prepare batch training data
-            # source: [batch_size, time_steps]: keywords + SEP + previous sentences
-            # source_lens: [batch_size]: length of source
-            # target: [batch_size, time_steps]: current sentence
-            # target_lens: [batch_size]: length of target
-            for i in range(int(src_len / FLAGS.batch_size)):
-                if i * FLAGS.batch_size > src_len:
-                    start = src_len - FLAGS.batch_size
-                else:
-                    start = i * FLAGS.batch_size
-
-                step_loss, summary = model.train(
-                    sess,
-                    encoder_inputs=np.array(trainX[start: start + FLAGS.batch_size]),
-                    encoder_inputs_length=np.array(trainX_len[start: start + FLAGS.batch_size]),
-                    decoder_inputs=np.array(trainY[start: start + FLAGS.batch_size]),
-                    decoder_inputs_length=np.array(trainY_len[start: start + FLAGS.batch_size])
-                )
-
-                loss += float(step_loss) / FLAGS.display_freq
-
-                # Display information
-                if model.global_step.eval() % FLAGS.display_freq == 0:
-                    print(
-                        'Epoch ',
-                        model.global_epoch_step.eval(),
-                        'Step ',
-                        model.global_step.eval(),
-                        'Loss {0:.2f}'.format(loss))
-
-                    loss = 0
-
-                    # Record training summary for the current batch
-                    log_writer.add_summary(summary, model.global_step.eval())
-
-                # Save the model checkpoint
-                if model.global_step.eval() % FLAGS.save_freq == 0:
-                    print('Saving the model..')
-                    checkpoint_path = os.path.join(
-                        FLAGS.model_dir, FLAGS.model_name)
-                    model.save(sess, saver, checkpoint_path,
-                               global_step=model.global_step)
-                    # json.dump(
-                    #     model.config, open(
-                    #         '%s-%d.json' %
-                    #         (checkpoint_path, model.global_step.eval()), 'wb'), indent=2)
-
-            # Increase the epoch index of the model
-            model.increment_global_epoch_step_op.eval()
-            print('Epoch {0:} DONE'.format(model.global_epoch_step.eval()))
-
-        print('Saving the last model')
-        checkpoint_path = os.path.join(FLAGS.model_dir, FLAGS.model_name)
-        model.save(sess, saver, checkpoint_path, global_step=model.global_step)
-        # json.dump(
-        #     model.config,
-        #     open(
-        #         '%s-%d.json' %
-        #         (checkpoint_path,
-        #          model.global_step.eval()),
-        #         'wb'),
-        #     indent=2)
-
-    print('Training terminated')
-
-
-def main(_):
-    train(embedding)
+            # predicted is a batch of one line
+            predicted_line = predicted_batch[0]
+            predicted_line_clean = predicted_line[:-1]  # remove the end token
+            # Flatten from [time_step, 1] to [time_step]
+            predicted_ints = map(lambda x: x[0], predicted_line_clean)
+            predicted_sentence = [
+                word_dict_rev.get(id) for id in predicted_ints]
+            print(" ".join(predicted_sentence))
 
 
 if __name__ == '__main__':

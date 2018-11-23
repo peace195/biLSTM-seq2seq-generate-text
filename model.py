@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 
 # standard
 import os
@@ -17,6 +17,7 @@ class Seq2SeqModel:
     """
     Seq2Seq model based on tensorflow.contrib.seq2seq
     """
+
     def __init__(self, config, mode):
 
         assert mode.lower() in ['train', 'predict']
@@ -27,7 +28,8 @@ class Seq2SeqModel:
         self.cell_type = config['cell_type'].value
         self.hidden_units = config['hidden_units'].value
         self.bidirectional = config['bidirectional'].value
-        self.decoder_hidden_units = self.hidden_units * (2 if self.bidirectional else 1)
+        self.decoder_hidden_units = self.hidden_units * \
+            (2 if self.bidirectional else 1)
 
         self.depth = config['depth'].value
         self.attention_type = config['attention_type'].value
@@ -47,13 +49,16 @@ class Seq2SeqModel:
         self.max_gradient_norm = config['max_gradient_norm'].value
 
         self.global_step = tf.Variable(0, trainable=False, name='global_step')
-        self.global_epoch_step = tf.Variable(0, trainable=False, name='global_epoch_step')
-        self.increment_global_epoch_step_op = tf.assign(self.global_epoch_step, self.global_epoch_step + 1)
+        self.global_epoch_step = tf.Variable(
+            0, trainable=False, name='global_epoch_step')
+        self.increment_global_epoch_step_op = tf.assign(
+            self.global_epoch_step, self.global_epoch_step + 1)
 
         self.dtype = tf.float16 if config['use_fp16'].value else tf.float32
-        self.keep_prob_placeholder = tf.placeholder(self.dtype, shape=[], name='keep_prob')
+        self.keep_prob_placeholder = tf.placeholder(
+            self.dtype, shape=[], name='keep_prob')
 
-        self.use_beamsearch_decode=False
+        self.use_beamsearch_decode = False
         if self.mode == 'predict':
             self.beam_width = config['beam_width'].value
             self.use_beamsearch_decode = True if self.beam_width > 1 else False
@@ -82,7 +87,8 @@ class Seq2SeqModel:
 
     def init_placeholders(self):
         # TODO(sdsuo): Understand dropout
-        self.keep_prob_placeholder = tf.placeholder(self.dtype, shape=[], name='keep_prob')
+        self.keep_prob_placeholder = tf.placeholder(
+            self.dtype, shape=[], name='keep_prob')
 
         # embedding_placeholder: [vocab_size, hidden_units]
         self.embedding_placeholder = tf.placeholder(
@@ -97,7 +103,8 @@ class Seq2SeqModel:
             trainable=False,
         )
 
-        self.assign_embedding_op = self.embedding.assign(self.embedding_placeholder)
+        self.assign_embedding_op = self.embedding.assign(
+            self.embedding_placeholder)
 
         # encode_inputs: [batch_size, time_steps]
         self.encoder_inputs = tf.placeholder(
@@ -142,8 +149,8 @@ class Seq2SeqModel:
 
             # decoder_inputs_train: [batch_size , max_time_steps + 1]
             # insert _GO symbol in front of each decoder input
-            self.decoder_inputs_train = tf.concat([decoder_start_token,
-                                                  self.decoder_inputs], axis=1)
+            self.decoder_inputs_train = tf.concat(
+                [decoder_start_token, self.decoder_inputs], axis=1)
 
             # decoder_inputs_length_train: [batch_size]
             self.decoder_inputs_length_train = self.decoder_inputs_length + 1
@@ -151,7 +158,7 @@ class Seq2SeqModel:
             # decoder_targets_train: [batch_size, max_time_steps + 1]
             # insert EOS symbol at the end of each decoder input
             self.decoder_targets_train = tf.concat([self.decoder_inputs,
-                                                   decoder_end_token], axis=1)
+                                                    decoder_end_token], axis=1)
 
     def build_single_cell(self, hidden_units):
         if self.cell_type == 'gru':
@@ -165,7 +172,8 @@ class Seq2SeqModel:
         return cell
 
     def build_encoder_cell(self):
-        multi_cell = rnn.MultiRNNCell([self.build_single_cell(self.hidden_units) for _ in range(self.depth)])
+        multi_cell = rnn.MultiRNNCell([self.build_single_cell(
+            self.hidden_units) for _ in range(self.depth)])
 
         return multi_cell
 
@@ -197,13 +205,15 @@ class Seq2SeqModel:
                     time_major=False
                 )
                 self.encoder_outputs_fw, self.encoder_outputs_bw = self.encoder_outputs_fw_bw
-                self.encoder_outputs = tf.concat([self.encoder_outputs_fw, self.encoder_outputs_bw], 2)
+                self.encoder_outputs = tf.concat(
+                    [self.encoder_outputs_fw, self.encoder_outputs_bw], 2)
 
                 self.encoder_last_state_fw, self.encoder_last_state_bw = self.encoder_last_state_fw_bw
 
-                encoder_last_state_zipped = zip(self.encoder_last_state_fw, self.encoder_last_state_bw)
-                encoder_last_state_list = [rnn.LSTMStateTuple(c=tf.concat([fw.c, bw.c], 1), h=tf.concat([fw.h, bw.h], 1))
-                                           for fw, bw in encoder_last_state_zipped]
+                encoder_last_state_zipped = zip(
+                    self.encoder_last_state_fw, self.encoder_last_state_bw)
+                encoder_last_state_list = [rnn.LSTMStateTuple(c=tf.concat([fw.c, bw.c], 1), h=tf.concat(
+                    [fw.h, bw.h], 1)) for fw, bw in encoder_last_state_zipped]
                 self.encoder_last_state = tuple(encoder_last_state_list)
             else:
                 self.encoder_cell = self.build_encoder_cell()
@@ -228,8 +238,9 @@ class Seq2SeqModel:
         )
 
         self.decoder_cell_list = [
-            self.build_single_cell(self.decoder_hidden_units) for _ in range(self.depth)
-        ]
+            self.build_single_cell(
+                self.decoder_hidden_units) for _ in range(
+                self.depth)]
 
         # NOTE(sdsuo): Not sure what this does yet
         def attn_decoder_input_fn(inputs, attention):
@@ -241,7 +252,8 @@ class Seq2SeqModel:
                                  name='attn_input_feeding')
             return _input_layer(rnn.array_ops.concat([inputs, attention], -1))
 
-        # NOTE(sdsuo): Attention mechanism is implemented only on the top decoder layer
+        # NOTE(sdsuo): Attention mechanism is implemented only on the top
+        # decoder layer
         self.decoder_cell_list[-1] = seq2seq.AttentionWrapper(
             cell=self.decoder_cell_list[-1],
             attention_mechanism=self.attention_mechanism,
@@ -272,9 +284,7 @@ class Seq2SeqModel:
         )
         decoder_initial_state = tuple(initial_state)
 
-
         return rnn.MultiRNNCell(self.decoder_cell_list), decoder_initial_state
-
 
     def build_train_decoder(self):
         self.decoder_inputs_embedded = tf.nn.embedding_lookup(
@@ -292,12 +302,15 @@ class Seq2SeqModel:
             training_helper = seq2seq.ScheduledEmbeddingTrainingHelper(
                 inputs=self.decoder_inputs_embedded,
                 sequence_length=self.decoder_inputs_length_train,
-                embedding=lambda inputs: tf.nn.embedding_lookup(self.embedding, inputs),
+                embedding=lambda inputs: tf.nn.embedding_lookup(
+                    self.embedding,
+                    inputs),
                 sampling_probability=self.sampling_probability,
-                name='scheduled_embedding_training_helper'
-            )
+                name='scheduled_embedding_training_helper')
         else:
-            raise NotImplementedError('Train mode: {} is not yet implemented'.format(self.train_mode))
+            raise NotImplementedError(
+                'Train mode: {} is not yet implemented'.format(
+                    self.train_mode))
 
         training_decoder = seq2seq.BasicDecoder(
             cell=self.decoder_cell,
@@ -308,22 +321,20 @@ class Seq2SeqModel:
         max_decoder_length = tf.reduce_max(self.decoder_inputs_length_train)
 
         self.decoder_outputs_train, self.decoder_last_state_train, self.decoder_outputs_length_train = seq2seq.dynamic_decode(
-            decoder=training_decoder,
-            output_time_major=False,
-            impute_finished=True,
-            maximum_iterations=max_decoder_length
-        )
+            decoder=training_decoder, output_time_major=False, impute_finished=True, maximum_iterations=max_decoder_length)
         # NOTE(sdsuo): Not sure why this is necessary
-        self.decoder_logits_train = tf.identity(self.decoder_outputs_train.rnn_output)
+        self.decoder_logits_train = tf.identity(
+            self.decoder_outputs_train.rnn_output)
 
-         # Use argmax to extract decoder symbols to emit
+        # Use argmax to extract decoder symbols to emit
         self.decoder_pred_train = tf.argmax(
             self.decoder_logits_train,
             axis=-1,
             name='decoder_pred_train'
         )
 
-        # masks: masking for valid and padded time steps, [batch_size, max_time_step + 1]
+        # masks: masking for valid and padded time steps, [batch_size,
+        # max_time_step + 1]
         masks = tf.sequence_mask(
             lengths=self.decoder_inputs_length_train,
             maxlen=max_decoder_length,
@@ -332,9 +343,8 @@ class Seq2SeqModel:
         )
 
         # Computes per word average cross-entropy over a batch
-        # Internally calls 'nn_ops.sparse_softmax_cross_entropy_with_logits' by default
-        print(self.decoder_logits_train.get_shape())
-        print(self.decoder_targets_train.get_shape())
+        # Internally calls 'nn_ops.sparse_softmax_cross_entropy_with_logits' by
+        # default
         self.loss = seq2seq.sequence_loss(
             logits=self.decoder_logits_train,
             targets=self.decoder_targets_train,
@@ -351,28 +361,34 @@ class Seq2SeqModel:
 
     def build_predict_decoder(self):
         # start_tokens: [batch_size,]
-        start_tokens = tf.ones([self.batch_size,], tf.int32) * self.start_token
-        end_token =self.end_token
+        start_tokens = tf.ones([self.batch_size, ],
+                               tf.int32) * self.start_token
+        end_token = self.end_token
 
         if not self.use_beamsearch_decode:
 
-            # Helper to feed inputs for greedy decoding: use the argmax of the output
+            # Helper to feed inputs for greedy decoding: use the argmax of the
+            # output
             if self.predict_mode == 'sample':
                 print('Building sample decoder...')
                 decoding_helper = seq2seq.SampleEmbeddingHelper(
                     start_tokens=start_tokens,
                     end_token=end_token,
-                    embedding=lambda inputs: tf.nn.embedding_lookup(self.embedding, inputs)
-                )
+                    embedding=lambda inputs: tf.nn.embedding_lookup(
+                        self.embedding,
+                        inputs))
             elif self.predict_mode == 'greedy':
                 print('Building greedy decoder...')
                 decoding_helper = seq2seq.GreedyEmbeddingHelper(
                     start_tokens=start_tokens,
                     end_token=end_token,
-                    embedding=lambda inputs: tf.nn.embedding_lookup(self.embedding, inputs)
-                )
+                    embedding=lambda inputs: tf.nn.embedding_lookup(
+                        self.embedding,
+                        inputs))
             else:
-                raise NotImplementedError('Predict mode: {} is not yet implemented'.format(self.predict_mode))
+                raise NotImplementedError(
+                    'Predict mode: {} is not yet implemented'.format(
+                        self.predict_mode))
 
             inference_decoder = seq2seq.BasicDecoder(
                 cell=self.decoder_cell,
@@ -381,19 +397,19 @@ class Seq2SeqModel:
                 output_layer=self.output_layer
             )
         else:
-            raise NotImplementedError('Beamsearch decode is not yet implemented.')
+            raise NotImplementedError(
+                'Beamsearch decode is not yet implemented.')
 
-
-        self.decoder_outputs_decode, self.decoder_last_state_decode,self.decoder_outputs_length_decode = seq2seq.dynamic_decode(
-            decoder=inference_decoder,
-            output_time_major=False,
-            maximum_iterations=self.max_decode_step
-        )
+        self.decoder_outputs_decode, self.decoder_last_state_decode, self.decoder_outputs_length_decode = seq2seq.dynamic_decode(
+            decoder=inference_decoder, output_time_major=False, maximum_iterations=self.max_decode_step)
 
         if not self.use_beamsearch_decode:
-            self.decoder_pred_decode = tf.expand_dims(self.decoder_outputs_decode.sample_id, -1)
+            self.decoder_pred_decode = tf.expand_dims(
+                self.decoder_outputs_decode.sample_id, -1)
         else:
-            raise NotImplementedError('{} mode is not recognized.'.format(self.mode))
+            raise NotImplementedError(
+                '{} mode is not recognized.'.format(
+                    self.mode))
 
     def build_decoder(self):
         print('Building decoder...')
@@ -402,7 +418,8 @@ class Seq2SeqModel:
             self.decoder_cell, self.decoder_initial_state = self.build_decoder_cell()
 
             # Output projection layer to convert cell_outputs to logits
-            self.output_layer = Dense(self.vocab_size, name='output_projection')
+            self.output_layer = Dense(
+                self.vocab_size, name='output_projection')
 
             if self.mode == 'train':
                 self.build_train_decoder()
@@ -416,19 +433,23 @@ class Seq2SeqModel:
         # Gradients and SGD update operation for training the model
         trainable_params = tf.trainable_variables()
         if self.optimizer.lower() == 'adadelta':
-            self.opt = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate)
+            self.opt = tf.train.AdadeltaOptimizer(
+                learning_rate=self.learning_rate)
         elif self.optimizer.lower() == 'adam':
             self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         elif self.optimizer.lower() == 'rmsprop':
-            self.opt = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate)
+            self.opt = tf.train.RMSPropOptimizer(
+                learning_rate=self.learning_rate)
         else:
-            self.opt = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
+            self.opt = tf.train.GradientDescentOptimizer(
+                learning_rate=self.learning_rate)
 
         # Compute gradients of loss w.r.t. all trainable variables
         gradients = tf.gradients(self.loss, trainable_params)
 
         # Clip gradients by a given maximum_gradient_norm
-        clip_gradients, _ = tf.clip_by_global_norm(gradients, self.max_gradient_norm)
+        clip_gradients, _ = tf.clip_by_global_norm(
+            gradients, self.max_gradient_norm)
 
         # Update the model
         self.updates = self.opt.apply_gradients(
@@ -486,8 +507,12 @@ class Seq2SeqModel:
         if self.mode != 'train':
             raise ValueError('Train step can only be operated in train mode')
 
-        input_feed = self.check_feeds(encoder_inputs, encoder_inputs_length,
-                                      decoder_inputs, decoder_inputs_length, False)
+        input_feed = self.check_feeds(
+            encoder_inputs,
+            encoder_inputs_length,
+            decoder_inputs,
+            decoder_inputs_length,
+            False)
 
         # TODO(sdsuo): Understand keep prob
         input_feed[self.keep_prob_placeholder.name] = self.keep_prob
@@ -495,16 +520,19 @@ class Seq2SeqModel:
         output_feed = [
             self.updates,   # Update Op that does optimization
             self.loss,      # Loss for current batch
-            self.summary_op # Training summary
+            self.summary_op  # Training summary
         ]
         outputs = sess.run(output_feed, input_feed)
 
         return outputs[1], outputs[2]   # loss, summary
 
     def predict(self, sess, encoder_inputs, encoder_inputs_length):
-        input_feed = self.check_feeds(encoder_inputs, encoder_inputs_length,
-                                      decoder_inputs=None, decoder_inputs_length=None,
-                                      predict=True)
+        input_feed = self.check_feeds(
+            encoder_inputs,
+            encoder_inputs_length,
+            decoder_inputs=None,
+            decoder_inputs_length=None,
+            predict=True)
 
         # Input feeds for dropout
         input_feed[self.keep_prob_placeholder.name] = 1.0
@@ -541,17 +569,23 @@ class Seq2SeqModel:
 
         input_batch_size = encoder_inputs.shape[0]
         if input_batch_size != encoder_inputs_length.shape[0]:
-            raise ValueError("Encoder inputs and their lengths must be equal in their "
-                "batch_size, %d != %d" % (input_batch_size, encoder_inputs_length.shape[0]))
+            raise ValueError(
+                "Encoder inputs and their lengths must be equal in their "
+                "batch_size, %d != %d" %
+                (input_batch_size, encoder_inputs_length.shape[0]))
 
         if not predict:
             target_batch_size = decoder_inputs.shape[0]
             if target_batch_size != input_batch_size:
-                raise ValueError("Encoder inputs and Decoder inputs must be equal in their "
-                    "batch_size, %d != %d" % (input_batch_size, target_batch_size))
+                raise ValueError(
+                    "Encoder inputs and Decoder inputs must be equal in their "
+                    "batch_size, %d != %d" %
+                    (input_batch_size, target_batch_size))
             if target_batch_size != decoder_inputs_length.shape[0]:
-                raise ValueError("Decoder targets and their lengths must be equal in their "
-                    "batch_size, %d != %d" % (target_batch_size, decoder_inputs_length.shape[0]))
+                raise ValueError(
+                    "Decoder targets and their lengths must be equal in their "
+                    "batch_size, %d != %d" %
+                    (target_batch_size, decoder_inputs_length.shape[0]))
 
         input_feed = {}
 
@@ -564,7 +598,7 @@ class Seq2SeqModel:
 
         return input_feed
 
+
 if __name__ == '__main__':
     model = Seq2SeqModel()
     embed()
-
