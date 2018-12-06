@@ -254,15 +254,15 @@ class Seq2SeqModel:
 
         # NOTE(sdsuo): Attention mechanism is implemented only on the top
         # decoder layer
-        self.decoder_cell_list[-1] = seq2seq.AttentionWrapper(
-            cell=self.decoder_cell_list[-1],
-            attention_mechanism=self.attention_mechanism,
-            attention_layer_size=self.decoder_hidden_units,
-            cell_input_fn=attn_decoder_input_fn,
-            initial_cell_state=self.encoder_last_state[-1],
-            alignment_history=False,
-            name='attention_wrapper'
-        )
+        # self.decoder_cell_list[-1] = seq2seq.AttentionWrapper(
+        #     cell=self.decoder_cell_list[-1],
+        #     attention_mechanism=self.attention_mechanism,
+        #     attention_layer_size=self.decoder_hidden_units,
+        #     cell_input_fn=attn_decoder_input_fn,
+        #     initial_cell_state=self.encoder_last_state[-1],
+        #     alignment_history=False,
+        #     name='attention_wrapper'
+        # )
 
         # NOTE(sdsuo): Not sure why this is necessary
         # To be compatible with AttentionWrapper, the encoder last state

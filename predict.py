@@ -71,7 +71,7 @@ tf.app.flags.DEFINE_integer(
     50,
     'Number of hidden units in each layer')
 tf.app.flags.DEFINE_integer(
-    'depth', 4, 'Number of layers in each encoder and decoder')
+    'depth', 1, 'Number of layers in each encoder and decoder')
 tf.app.flags.DEFINE_integer(
     'embedding_size',
     50,
@@ -197,7 +197,7 @@ def load_or_create_model(sess, model, saver, FLAGS):
         sess.run(tf.global_variables_initializer())
 
 
-def main(_):
+def predict(embedding):
     config_proto = tf.ConfigProto(
         allow_soft_placement=FLAGS.allow_soft_placement,
         log_device_placement=FLAGS.log_device_placement,
@@ -215,6 +215,8 @@ def main(_):
 
         # Initiaize global variables or reload existing checkpoint
         load_or_create_model(sess, model, saver, FLAGS)
+        embedding = np.array(embedding)
+        model.init_vars(sess, embedding=embedding)
 
         while True:
             input_seq = input('Enter Query: ')
@@ -235,6 +237,8 @@ def main(_):
                 word_dict_rev.get(id) for id in predicted_ints]
             print(" ".join(predicted_sentence))
 
+def main(_):
+    predict(embedding)
 
 if __name__ == '__main__':
     tf.app.run()

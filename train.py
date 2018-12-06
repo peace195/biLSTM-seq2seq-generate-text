@@ -42,7 +42,7 @@ word_dict['end_id'] = end_id
 embedding.append([0.] * len(embedding[0]))
 word_dict_rev = {v: k for k, v in word_dict.items()}
 src_vocab_size = src_vocab_size + 2
-fout = open("./data/lp_train.txt", "r")
+fout = open("./data/lp_train_1000.txt", "r")
 for line in fout:
     Y = []
     words = line.strip().replace("\t", " ").split()
@@ -84,7 +84,7 @@ tf.app.flags.DEFINE_integer(
     50,
     'Number of hidden units in each layer')
 tf.app.flags.DEFINE_integer(
-    'depth', 4, 'Number of layers in each encoder and decoder')
+    'depth', 1, 'Number of layers in each encoder and decoder')
 tf.app.flags.DEFINE_integer(
     'embedding_size',
     50,
@@ -121,13 +121,13 @@ tf.app.flags.DEFINE_float(
     'Dropout probability for input/output/state units (0.0: no dropout)')
 
 # Training parameters
-tf.app.flags.DEFINE_float('learning_rate', 0.0002, 'Learning rate')
+tf.app.flags.DEFINE_float('learning_rate', 0.002, 'Learning rate')
 tf.app.flags.DEFINE_float(
     'max_gradient_norm',
     1.0,
     'Clip gradients to this norm')
 tf.app.flags.DEFINE_integer('batch_size', 32, 'Batch size')
-tf.app.flags.DEFINE_integer('max_epochs', 100, 'Maximum # of training epochs')
+tf.app.flags.DEFINE_integer('max_epochs', 10, 'Maximum # of training epochs')
 tf.app.flags.DEFINE_integer(
     'max_load_batches',
     60,
@@ -201,15 +201,15 @@ FLAGS = tf.app.flags.FLAGS
 
 
 def load_or_create_model(sess, model, saver, FLAGS):
-    ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
-    if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
-        print('Reloading model parameters...')
-        model.restore(sess, saver, ckpt.model_checkpoint_path)
-    else:
-        if not os.path.exists(FLAGS.model_dir):
-            os.makedirs(FLAGS.model_dir)
-        print('Created new model parameters...')
-        sess.run(tf.global_variables_initializer())
+    # ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
+    # if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
+    #     print('Reloading model parameters...')
+    #     model.restore(sess, saver, ckpt.model_checkpoint_path)
+    # else:
+    #     if not os.path.exists(FLAGS.model_dir):
+    #         os.makedirs(FLAGS.model_dir)
+    #     print('Created new model parameters...')
+    sess.run(tf.global_variables_initializer())
 
 
 def train(embedding):
