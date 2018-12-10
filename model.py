@@ -36,9 +36,6 @@ class Seq2SeqModel:
         self.embedding_size = config['embedding_size'].value
         self.vocab_size = config['vocab_size'].value
 
-        self.num_encoder_symbols = config['num_encoder_symbols'].value
-        self.num_decoder_symbols = config['num_decoder_symbols'].value
-
         self.use_residual = config['use_residual'].value
         self.attn_input_feeding = config['attn_input_feeding'].value
         self.use_dropout = config['use_dropout'].value

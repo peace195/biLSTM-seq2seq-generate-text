@@ -2,9 +2,7 @@
 # coding: utf-8
 
 from collections import OrderedDict
-
 import tensorflow as tf
-
 from utils import *
 from model import Seq2SeqModel
 import codecs
@@ -89,14 +87,7 @@ tf.app.flags.DEFINE_integer(
     'embedding_size',
     50,
     'Embedding dimensions of encoder and decoder inputs')
-tf.app.flags.DEFINE_integer(
-    'num_encoder_symbols',
-    30000,
-    'Source vocabulary size')
-tf.app.flags.DEFINE_integer(
-    'num_decoder_symbols',
-    30000,
-    'Target vocabulary size')
+
 # NOTE(sdsuo): We used the same vocab for source and target
 tf.app.flags.DEFINE_integer(
     'vocab_size',
@@ -121,13 +112,13 @@ tf.app.flags.DEFINE_float(
     'Dropout probability for input/output/state units (0.0: no dropout)')
 
 # Training parameters
-tf.app.flags.DEFINE_float('learning_rate', 0.002, 'Learning rate')
+tf.app.flags.DEFINE_float('learning_rate', 0.001, 'Learning rate')
 tf.app.flags.DEFINE_float(
     'max_gradient_norm',
     1.0,
     'Clip gradients to this norm')
 tf.app.flags.DEFINE_integer('batch_size', 32, 'Batch size')
-tf.app.flags.DEFINE_integer('max_epochs', 10, 'Maximum # of training epochs')
+tf.app.flags.DEFINE_integer('max_epochs', 20, 'Maximum # of training epochs')
 tf.app.flags.DEFINE_integer(
     'max_load_batches',
     60,
@@ -141,10 +132,6 @@ tf.app.flags.DEFINE_integer(
     'save_freq',
     1000,
     'Save model checkpoint every this iteration')
-tf.app.flags.DEFINE_integer(
-    'valid_freq',
-    1150000,
-    'Evaluate model every this iteration: valid_data needed')
 tf.app.flags.DEFINE_string(
     'optimizer',
     'adam',
@@ -220,7 +207,6 @@ def train(embedding):
     )
 
     with tf.Session(config=config_proto) as sess:
-        # Build the model
         config = OrderedDict(sorted(FLAGS.__flags.items()))
         model = Seq2SeqModel(config, 'train')
 

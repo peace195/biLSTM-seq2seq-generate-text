@@ -7,7 +7,6 @@ import numpy as np
 
 word_dict = {}
 embedding = []
-SEQ_MAX_LEN = 60
 f_vec = codecs.open('./data/glove.6B.50d.txt', 'r', 'utf-8')
 idx = 0
 for line in f_vec:
@@ -76,14 +75,6 @@ tf.app.flags.DEFINE_integer(
     'embedding_size',
     50,
     'Embedding dimensions of encoder and decoder inputs')
-tf.app.flags.DEFINE_integer(
-    'num_encoder_symbols',
-    30000,
-    'Source vocabulary size')
-tf.app.flags.DEFINE_integer(
-    'num_decoder_symbols',
-    30000,
-    'Target vocabulary size')
 # NOTE(sdsuo): We used the same vocab for source and target
 tf.app.flags.DEFINE_integer(
     'vocab_size',
@@ -126,10 +117,6 @@ tf.app.flags.DEFINE_integer(
     'save_freq',
     100,
     'Save model checkpoint every this iteration')
-tf.app.flags.DEFINE_integer(
-    'valid_freq',
-    1150000,
-    'Evaluate model every this iteration: valid_data needed')
 tf.app.flags.DEFINE_string(
     'optimizer',
     'adam',
