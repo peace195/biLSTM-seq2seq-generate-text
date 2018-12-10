@@ -40,7 +40,7 @@ word_dict['end_id'] = end_id
 embedding.append([0.] * len(embedding[0]))
 word_dict_rev = {v: k for k, v in word_dict.items()}
 src_vocab_size = src_vocab_size + 2
-fout = open("./data/lp_train_1000.txt", "r")
+fout = open("./updated_dataset/3.txt", "r")
 for line in fout:
     Y = []
     words = line.strip().replace("\t", " ").split()
